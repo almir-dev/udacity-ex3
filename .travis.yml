@@ -1,32 +1,43 @@
-language: node_js
-node_js:
-  - 13
+language: minimal
 
 services:
   - docker
 
-# Pre-testing installs
-install:
-  - echo "nothing needs to be installed"
+env:
+  - DOCKER_COMPOSE_VERSION=1.23.2
 
-# Scripts to be run such as tests
-before_script:
-  - echo "no tests"
+before_install:
+
+  - docker -v && docker-compose -v
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+  - chmod +x ./kubectl
+  - sudo mv ./kubectl /usr/local/bin/kubectl
+
+install:
+  - docker-compose -f deployment/docker/docker-compose-build.yaml build --parallel
 
 script:
   - docker --version # print the version for logging
+
   - docker build -t udagram-api-feed ./udagram-api-feed
-  - docker build -t udagram-api-user ./udagram-api-user
+  - docker tag udagram-api-feed almirdev/udagram-api-feed:latest
+
   - docker build -t udagram-frontend ./udagram-frontend
+  - docker tag udagram-ui almirdev/udagram-frontend:latest
+
+  - docker build -t udagram-api-user udagram-api-user
+  - docker tag udagram-user-api almirdev/udagram-api-user:latest
+
   - docker build -t udagram-reverseproxy ./udagram-reverseproxy
-  - docker tag udagram-api-feed almirdev/udagram-api-feed:v1
-  - docker tag udagram-api-user almirdev/udagram-api-user:v1
-  - docker tag udagram-frontend almirdev/udagram-frontend:v1
-  - docker tag udagram-reverseproxy almirdev/udagram-reverseproxy:v1
+  - docker tag udagram-reverseproxy almirdev/udagram-reverseproxy :latest
 
 after_success:
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-  - docker push almirdev/udagram-api-feed:v1
-  - docker push almirdev/udagram-api-user:v1
-  - docker push almirdev/udagram-frontend:v1
-  - docker push almirdev/udagram-reverseproxy:v1
+  - docker push almirdev/udagram-api-feed
+  - docker push almirdev/udagram-frontend
+  - docker push almirdev/udagram-api-user
+  - docker push almirdev/udagram-reverseproxy
